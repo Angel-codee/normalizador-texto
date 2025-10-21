@@ -1,35 +1,52 @@
-
 const fs = require('fs');
-const diacritics = require('diacritics');
-const axios = require('axios'); // Nueva importación
-// Función principal asíncrona
-async function procesarTexto() {
-try {
-// 1. Leer y normalizar el texto (lógica que ya tenías)
+const axios = require('axios');
+const OLLAMA_API_URL = 'http://localhost:11434/api/generate';
 
-const textoEntrada = fs.readFileSync('entrada.txt', 'utf-8');
+async function generarTexto() {
+    let promptTexto;
+    try {
+        // 1. Lectura del archivo de entrada
+        promptTexto = fs.readFileSync('entrada.txt', 'utf-8');
+        console.log(`💬 Enviando prompt: "${promptTexto.substring(0, 50)}..."`);
+    } catch (error) {
+        if (error.code === 'ENOENT') {
+            console.error('❌ Error: El archivo "entrada.txt" no se encontró. ¡Créalo y añade un prompt!');
+        } else {
+            console.error('❌ Error al leer el archivo:', error.message);
+        }
+        return; // Detiene la ejecución si no puede leer el archivo
+    }
 
-const textoNormalizado =
-diacritics.remove(textoEntrada.toLowerCase());
-console.log('Texto normalizado:', textoNormalizado);
-// 2. Preparar los datos para enviar a la API
-const datosParaAPI = {
-title: 'Texto desde script Node.js',
-body: textoNormalizado,
-userId: 1, // Un dato de ejemplo
-};
-// 3. Realizar la petición HTTP POST a una API de prueba
-console.log('\nEnviando texto a la API de prueba...');
-const respuestaAPI = await
-axios.post('https://jsonplaceholder.typicode.com/posts',
-datosParaAPI);
-// 4. Mostrar la respuesta de la API en la consola
-console.log('¡Respuesta recibida de la API!');
-console.log('Status:', respuestaAPI.status);
-console.log('Datos devueltos:', respuestaAPI.data);
-} catch (error) {
-console.error('Ha ocurrido un error:', error.message);
+    try {
+        // 2. Preparar el cuerpo (payload)
+        const datosParaAPI = {
+            model: "mistral",
+            prompt: promptTexto,
+            stream: false
+        };
+
+        // 3. Realizar la petición HTTP POST
+        console.log('⏳ Esperando respuesta de Ollama (esto puede tardar)...');
+        const respuestaAPI = await axios.post(OLLAMA_API_URL, datosParaAPI);
+
+        // 4. Extraer y guardar la respuesta
+        const respuestaTexto = respuestaAPI.data.response;
+        fs.writeFileSync('salida.txt', respuestaTexto);
+
+        console.log('✅ ¡Éxito! Respuesta guardada en "salida.txt"');
+        console.log('Respuesta:', respuestaTexto);
+        
+    } catch (error) {
+        console.error('❌ Ha ocurrido un error con la API de Ollama:');
+        if (error.code === 'ECONNREFUSED') {
+            console.error('Error: No se pudo conectar. ¿Está Ollama corriendo en http://localhost:11434?');
+        } else if (error.response && error.response.status === 404) {
+             console.error('Error 404: El modelo "mistral" puede no estar instalado. Ejecuta "ollama pull mistral"');
+        } else {
+            console.error(error.message);
+        }
+    }
 }
-}
+
 // Ejecutar la función principal
-procesarTexto();
+generarTexto();
