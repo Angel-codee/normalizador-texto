@@ -1,52 +1,44 @@
 const fs = require('fs');
 const axios = require('axios');
+// La dirección de nuestra API de Ollama local
 const OLLAMA_API_URL = 'http://localhost:11434/api/generate';
-
-async function generarTexto() {
-    let promptTexto;
-    try {
-        // 1. Lectura del archivo de entrada
-        promptTexto = fs.readFileSync('entrada.txt', 'utf-8');
-        console.log(`💬 Enviando prompt: "${promptTexto.substring(0, 50)}..."`);
-    } catch (error) {
-        if (error.code === 'ENOENT') {
-            console.error('❌ Error: El archivo "entrada.txt" no se encontró. ¡Créalo y añade un prompt!');
-        } else {
-            console.error('❌ Error al leer el archivo:', error.message);
-        }
-        return; // Detiene la ejecución si no puede leer el archivo
-    }
-
-    try {
-        // 2. Preparar el cuerpo (payload)
-        const datosParaAPI = {
-            model: "mistral",
-            prompt: promptTexto,
-            stream: false
-        };
-
-        // 3. Realizar la petición HTTP POST
-        console.log('⏳ Esperando respuesta de Ollama (esto puede tardar)...');
-        const respuestaAPI = await axios.post(OLLAMA_API_URL, datosParaAPI);
-
-        // 4. Extraer y guardar la respuesta
-        const respuestaTexto = respuestaAPI.data.response;
-        fs.writeFileSync('salida.txt', respuestaTexto);
-
-        console.log('✅ ¡Éxito! Respuesta guardada en "salida.txt"');
-        console.log('Respuesta:', respuestaTexto);
-        
-    } catch (error) {
-        console.error('❌ Ha ocurrido un error con la API de Ollama:');
-        if (error.code === 'ECONNREFUSED') {
-            console.error('Error: No se pudo conectar. ¿Está Ollama corriendo en http://localhost:11434?');
-        } else if (error.response && error.response.status === 404) {
-             console.error('Error 404: El modelo "mistral" puede no estar instalado. Ejecuta "ollama pull mistral"');
-        } else {
-            console.error(error.message);
-        }
-    }
+// Función principal asíncrona
+async function parafrasearTexto() {
+try {
+// 1. Leer el texto original a parafrasear
+const textoOriginal = fs.readFileSync('entrada.txt', 'utf-8');
+console.log(`Original: "${textoOriginal}"`);
+// 2. ¡LA CLAVE! Construir un prompt de "instrucción"
+const promptCompleto = `
+Actúa como un escritor experto.
+Paráfrasea el siguiente texto, manteniendo el significado original pero usando palabras y estructuras
+de oración diferentes.
+No añadas ninguna explicación o comentario introductorio. Solo entrega el texto parafraseado.
+TEXTO A PARAFRASEAR:
+"${textoOriginal}"
+`;
+// 3. Preparar el cuerpo (payload) para la API
+const datosParaAPI = {
+model: "mistral",
+prompt: promptCompleto, // ¡Usamos nuestro nuevo prompt!
+stream: false
+};
+// 4. Realizar la petición (el resto del código es igual)
+console.log('Parafraseando texto (esto puede tardar)...');
+const respuestaAPI = await axios.post(OLLAMA_API_URL, datosParaAPI);
+// 5. Extraer y guardar la respuesta
+const textoParafraseado = respuestaAPI.data.response.trim(); // .trim() quita espacios extra
+fs.writeFileSync('salida.txt', textoParafraseado);
+console.log('¡Éxito! Texto parafraseado guardado en "salida.txt"');
+console.log('Respuesta:', textoParafraseado);
+} catch (error) {
+console.error(' Ha ocurrido un error:');
+if (error.code === 'ECONNREFUSED') {
+console.error('Error: No se pudo conectar. ¿Está Ollama corriendo?');
+} else {
+console.error(error.message);
 }
-
-// Ejecutar la función principal
-generarTexto();
+}
+}
+// No olvides llamar a la nueva función
+parafrasearTexto();
